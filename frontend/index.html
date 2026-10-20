@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GIS Pariwisata Provinsi Bali - Peta Interaktif & Analisis Spasial</title>
+  <meta name="description" content="Sistem Informasi Geografis Pariwisata Provinsi Bali dengan visualisasi peta interaktif, analisis konsentrasi Heatmap, clustering DBSCAN, pencarian radius dinamis, dan basis data spasial.">
+
+  <!-- Google Fonts: Outfit & Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- FontAwesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <!-- Leaflet MarkerCluster CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+
+  <!-- App Custom Stylesheet -->
+  <link rel="stylesheet" href="/src/css/style.css">
+</head>
+<body>
+
+  <!-- APP HEADER NAVBAR -->
+  <header class="app-header">
+    <div class="brand-section">
+      <div class="brand-icon">
+        <i class="fa-solid fa-map-location-dot"></i>
+      </div>
+      <div class="brand-info">
+        <h1>GIS Pariwisata Bali <span class="brand-badge">SIG v2.0 Fullstack</span></h1>
+        <div class="brand-subtitle">Sistem Informasi Geografis Destinasi Wisata Provinsi Bali</div>
+      </div>
+    </div>
+
+    <!-- Main Navigation Tabs -->
+    <nav class="nav-tabs" role="tablist">
+      <button class="nav-tab-btn active" data-tab="view-map" id="tab-btn-map" title="Peta Interaktif">
+        <i class="fa-solid fa-map"></i>
+        <span>Peta Interaktif</span>
+      </button>
+      <button class="nav-tab-btn" data-tab="view-spatial" id="tab-btn-spatial" title="Analisis Spasial">
+        <i class="fa-solid fa-chart-pie"></i>
+        <span>Analisis Spasial</span>
+      </button>
+      <button class="nav-tab-btn" data-tab="view-stats" id="tab-btn-stats" title="Statistik GIS">
+        <i class="fa-solid fa-chart-column"></i>
+        <span>Statistik GIS</span>
+      </button>
+      <button class="nav-tab-btn admin-only" data-tab="view-admin" id="tab-btn-admin" title="Kelola Data (Khusus Admin)" style="display: none;">
+        <i class="fa-solid fa-database"></i>
+        <span>Kelola Data</span>
+      </button>
+    </nav>
+
+    <!-- Header Actions (Role Badge & Admin Auth) -->
+    <div class="header-actions">
+      <!-- User Role Indicator Badge -->
+      <span class="badge-role role-tourist" id="user-role-badge" title="Status Akses Pengguna">
+        <i class="fa-solid fa-user"></i>
+        <span>Wisatawan</span>
+      </span>
+
+      <button class="btn-icon-text" id="btn-user-location" title="Deteksi Lokasi Saya">
+        <i class="fa-solid fa-crosshairs"></i>
+        <span>Lokasi Saya</span>
+      </button>
+      <button class="btn-icon-text btn-admin" id="btn-admin-auth">
+        <i class="fa-solid fa-user-shield"></i>
+        <span id="admin-auth-label">Login Admin</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- APP MAIN CONTENT -->
+  <main class="app-main">
+
+    <!-- ========================================== -->
+    <!-- VIEW 1: PETA INTERAKTIF                    -->
+    <!-- ========================================== -->
+    <section class="tab-content active" id="view-map">
+      
+      <!-- LEFT SIDEBAR: FILTERS & PLACES LIST -->
+      <aside class="map-sidebar" id="map-sidebar">
+        <!-- Search bar -->
+        <div class="sidebar-header">
+          <div class="search-box-wrapper">
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            <input type="text" id="search-input" class="search-input" placeholder="Cari pantai, pura, air terjun..." autocomplete="off">
+            <button id="btn-clear-search" class="clear-search-btn" title="Hapus pencarian">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter Controls -->
+        <div class="filter-section">
+          <!-- Category Quick Pills -->
+          <div class="filter-row">
+            <span class="filter-label">Kategori Wisata</span>
+          </div>
+          <div class="category-pills" id="category-pills">
+            <button class="cat-pill active" data-category="Semua">Semua</button>
+            <button class="cat-pill" data-category="Pantai">Pantai</button>
+            <button class="cat-pill" data-category="Budaya & Pura">Budaya & Pura</button>
+            <button class="cat-pill" data-category="Alam & Gunung">Alam & Gunung</button>
+            <button class="cat-pill" data-category="Air Terjun">Air Terjun</button>
+            <button class="cat-pill" data-category="Rekreasi & Edukasi">Rekreasi</button>
+            <button class="cat-pill" data-category="Kuliner & Relaksasi">Relaksasi</button>
+          </div>
+
+          <!-- Regency & Rating selects -->
+          <div class="filter-row">
+            <select id="select-kabupaten" class="filter-select" title="Pilih Kabupaten">
+              <option value="Semua">Semua Kabupaten/Kota (9)</option>
+              <option value="BADUNG">Kabupaten Badung</option>
+              <option value="DENPASAR">Kota Denpasar</option>
+              <option value="GIANYAR">Kabupaten Gianyar</option>
+              <option value="TABANAN">Kabupaten Tabanan</option>
+              <option value="BULELENG">Kabupaten Buleleng</option>
+              <option value="BANGLI">Kabupaten Bangli</option>
+              <option value="KARANGASEM">Kabupaten Karangasem</option>
+              <option value="KLUNGKUNG">Kabupaten Klungkung</option>
+              <option value="JEMBRANA">Kabupaten Jembrana</option>
+            </select>
+
+            <select id="select-rating" class="filter-select" title="Filter Rating">
+              <option value="0">Semua Rating</option>
+              <option value="4.5">Rating ≥ 4.5 ⭐</option>
+              <option value="4.7">Rating ≥ 4.7 ⭐</option>
+              <option value="4.8">Rating ≥ 4.8 ⭐</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Summary text -->
+        <div class="destinations-summary">
+          <span id="places-count-label">Menampilkan 0 destinasi</span>
+          <span id="radius-active-indicator" style="display: none; color: var(--primary); font-weight: 700;">
+            <i class="fa-solid fa-bullseye"></i> Radius Aktif
+          </span>
+        </div>
+
+        <!-- Places Cards List -->
+        <div class="places-list-container" id="places-list">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </aside>
+
+      <!-- MAP WRAPPER -->
+      <div class="map-wrapper">
+        <div id="map"></div>
+
+        <!-- FLOATING SPATIAL TOOLBAR (TOP RIGHT) -->
+        <div class="map-floating-panel spatial-toolbar">
+          <button class="spatial-tool-btn" id="tool-btn-radius" title="Pencarian Berdasarkan Radius Spasial">
+            <i class="fa-solid fa-circle-dot"></i>
+            <span>Pencarian Radius</span>
+          </button>
+          <button class="spatial-tool-btn" id="tool-btn-dbscan" title="Analisis Kluster Kepadatan DBSCAN">
+            <i class="fa-solid fa-diagram-project"></i>
+            <span>Kluster DBSCAN</span>
+          </button>
+          <button class="spatial-tool-btn" id="tool-btn-heatmap" title="Visualisasi Heatmap Kepadatan">
+            <i class="fa-solid fa-fire"></i>
+            <span>Heatmap</span>
+          </button>
+          <button class="spatial-tool-btn" id="tool-btn-reset" title="Kembalikan Tampilan ke Pulau Bali">
+            <i class="fa-solid fa-arrows-rotate"></i>
+          </button>
+        </div>
+
+        <!-- FLOATING WINDOW 1: RADIUS SEARCH CONTROLLER -->
+        <div class="floating-tool-window" id="window-radius">
+          <div class="tool-window-header">
+            <div class="tool-window-title">
+              <i class="fa-solid fa-circle-dot" style="color: var(--primary);"></i>
+              <span>Pencarian Radius Spasial</span>
+            </div>
+            <button class="close-tool-btn" id="close-radius-window">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          <div class="tool-window-body">
+            <p style="font-size: 0.8rem; color: var(--text-muted);">
+              Tentukan titik pusat dan atur jarak radius untuk mencari destinasi wisata terdekat secara presisi.
+            </p>
+
+            <div style="display: flex; gap: 8px;">
+              <button class="tool-btn-secondary" id="btn-pick-radius-center">
+                <i class="fa-solid fa-location-crosshairs"></i>
+                <span>Klik Titik di Peta</span>
+              </button>
+              <button class="tool-btn-secondary" id="btn-use-my-loc-radius">
+                <i class="fa-solid fa-location-arrow"></i>
+                <span>Titik Saya</span>
+              </button>
+            </div>
+
+            <div style="font-size: 0.75rem; background: rgba(0,0,0,0.3); padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+              <span style="color: var(--text-muted);">Pusat: </span>
+              <span id="radius-center-coords" style="color: var(--text-main); font-weight: 600;">-8.4095, 115.1889 (Pusat Bali)</span>
+            </div>
+
+            <!-- Radius Range Slider -->
+            <div class="slider-container">
+              <div class="slider-header">
+                <span>Jarak Radius Buffer</span>
+                <span class="slider-val-badge" id="radius-val-display">10 km</span>
+              </div>
+              <input type="range" min="1" max="50" value="10" step="1" class="range-slider" id="radius-slider">
+              <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                <span>1 km</span>
+                <span>25 km</span>
+                <span>50 km</span>
+              </div>
+            </div>
+
+            <button class="tool-btn-primary" id="btn-apply-radius">
+              <i class="fa-solid fa-check"></i>
+              <span>Terapkan Radius</span>
+            </button>
+            <button class="tool-btn-secondary" id="btn-clear-radius">
+              <i class="fa-solid fa-trash-can"></i>
+              <span>Hapus Filter Radius</span>
+            </button>
+
+            <!-- Results Preview in Radius Window -->
+            <div id="radius-results-summary" style="display: none; padding-top: 6px; border-top: 1px solid var(--border-color); font-size: 0.8rem;">
+              <div style="display: flex; justify-content: space-between; font-weight: 700; color: var(--primary);">
+                <span>Hasil Dalam Radius:</span>
+                <span id="radius-found-count">0 Destinasi</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- FLOATING WINDOW 2: DBSCAN CLUSTERING CONTROLLER -->
+        <div class="floating-tool-window" id="window-dbscan">
+          <div class="tool-window-header">
+            <div class="tool-window-title">
+              <i class="fa-solid fa-diagram-project" style="color: var(--secondary-light);"></i>
+              <span>DBSCAN Clustering</span>
+            </div>
+            <button class="close-tool-btn" id="close-dbscan-window">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          <div class="tool-window-body">
+            <p style="font-size: 0.8rem; color: var(--text-muted);">
+              Analisis spasial kepadatan untuk mendeteksi konsentrasi kluster wisata dan titik anomali (noise).
+            </p>
+
+            <!-- Epsilon Slider -->
+            <div class="slider-container">
+              <div class="slider-header">
+                <span>Epsilon (Jarak Maksimal Tetangga)</span>
+                <span class="slider-val-badge" id="eps-val-display">8 km</span>
+              </div>
+              <input type="range" min="2" max="25" value="8" step="1" class="range-slider" id="dbscan-eps-slider">
+              <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                <span>2 km (Ketat)</span>
+                <span>12 km</span>
+                <span>25 km (Luas)</span>
+              </div>
+            </div>
+
+            <!-- MinPts Slider -->
+            <div class="slider-container">
+              <div class="slider-header">
+                <span>Min Points (Jumlah Titik Inti)</span>
+                <span class="slider-val-badge" id="minpts-val-display">3 titik</span>
+              </div>
+              <input type="range" min="2" max="8" value="3" step="1" class="range-slider" id="dbscan-minpts-slider">
+              <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted);">
+                <span>2 Titik</span>
+                <span>5 Titik</span>
+                <span>8 Titik</span>
+              </div>
+            </div>
+
+            <button class="tool-btn-primary btn-run-dbscan" id="btn-run-dbscan">
+              <i class="fa-solid fa-play"></i>
+              <span>Jalankan Kluster DBSCAN</span>
+            </button>
+            <button class="tool-btn-secondary" id="btn-clear-dbscan">
+              <i class="fa-solid fa-eye-slash"></i>
+              <span>Sembunyikan Hasil Kluster</span>
+            </button>
+
+            <!-- Clustering Results Display -->
+            <div id="dbscan-results-box" style="display: none; padding-top: 8px; border-top: 1px solid var(--border-color);">
+              <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 8px;">
+                <span style="color: var(--text-muted);">Kluster Ditemukan:</span>
+                <strong style="color: var(--secondary-light);" id="dbscan-total-clusters">0</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 12px;">
+                <span style="color: var(--text-muted);">Titik Noise (Pencilan):</span>
+                <strong style="color: var(--accent-rose);" id="dbscan-total-noise">0</strong>
+              </div>
+              <div class="cluster-list" id="dbscan-clusters-list">
+                <!-- Injected via JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- FLOATING WINDOW 3: HEATMAP CONTROLLER -->
+        <div class="floating-tool-window" id="window-heatmap" style="width: 370px;">
+          <div class="tool-window-header">
+            <div class="tool-window-title">
+              <i class="fa-solid fa-fire" style="color: var(--accent-rose);"></i>
+              <span>Analisis Heatmap (Kepadatan Wisata)</span>
+            </div>
+            <button class="close-tool-btn" id="close-heatmap-window">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          <div class="tool-window-body">
+            <!-- Heatmap Summary Card -->
+            <div style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(245, 158, 11, 0.08)); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: var(--radius-md); padding: 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-weight: 700; font-size: 0.85rem; color: #991b1b; display: flex; align-items: center; gap: 6px;">
+                  <i class="fa-solid fa-chart-line"></i> Densitas Wisata Bali
+                </span>
+                <span class="badge-tag" id="heatmap-points-count" style="background: #fee2e2; color: #b91c1c; font-weight: 700;">47 Destinasi</span>
+              </div>
+              <p style="font-size: 0.76rem; color: var(--text-secondary); line-height: 1.4; margin: 0;">
+                Memvisualisasikan konsentrasi destinasi dalam bentuk <strong>gradasi cahaya termal</strong> (bobot rating pengunjung & densitas geografis).
+              </p>
+            </div>
+
+            <!-- Heatmap Gradient Legend Box -->
+            <div style="background: var(--bg-surface-subtle); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 10px 12px;">
+              <div style="font-size: 0.78rem; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; display: flex; justify-content: space-between;">
+                <span>Legenda Spektrum Panas:</span>
+                <span style="font-size: 0.72rem; color: var(--text-muted);">Intensitas</span>
+              </div>
+              <!-- Gradient Bar -->
+              <div style="height: 14px; width: 100%; border-radius: 7px; background: linear-gradient(to right, #2563eb, #06b6d4, #10b981, #f59e0b, #f97316, #ef4444); box-shadow: inset 0 1px 2px rgba(0,0,0,0.15); margin-bottom: 6px;"></div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.7rem; font-weight: 600; color: var(--text-muted);">
+                <span style="color: #2563eb;">🔵 Rendah</span>
+                <span style="color: #059669;">🟢 Sedang</span>
+                <span style="color: #d97706;">🟡 Padat</span>
+                <span style="color: #dc2626;">🔴 Hotspot Utama</span>
+              </div>
+            </div>
+
+            <!-- Toggle Active & Focus -->
+            <div style="display: flex; flex-direction: column; gap: 8px; padding: 4px 0;">
+              <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                <span style="font-size: 0.85rem; font-weight: 600;">Aktifkan Layer Heatmap</span>
+                <input type="checkbox" id="toggle-heatmap" style="transform: scale(1.25); cursor: pointer;" checked>
+              </label>
+
+              <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                <span style="font-size: 0.82rem; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+                  <i class="fa-solid fa-eye-slash" style="color: var(--primary);"></i> Sembunyikan Marker Pin (Fokus Heatmap)
+                </span>
+                <input type="checkbox" id="toggle-heatmap-hide-markers" style="transform: scale(1.2); cursor: pointer;">
+              </label>
+            </div>
+
+            <!-- Heatmap Radius Slider -->
+            <div class="slider-container">
+              <div class="slider-header">
+                <span>Radius Pijar Titik Panas</span>
+                <span class="slider-val-badge" id="hm-radius-display">28 px</span>
+              </div>
+              <input type="range" min="12" max="65" value="28" step="2" class="range-slider" id="hm-radius-slider">
+            </div>
+
+            <!-- Heatmap Blur Slider -->
+            <div class="slider-container">
+              <div class="slider-header">
+                <span>Tingkat Kehalusan (Blur)</span>
+                <span class="slider-val-badge" id="hm-blur-display">18 px</span>
+              </div>
+              <input type="range" min="5" max="45" value="18" step="1" class="range-slider" id="hm-blur-slider">
+            </div>
+
+            <!-- Quick Presets -->
+            <div style="display: flex; gap: 6px; margin-top: 2px;">
+              <button type="button" class="btn-icon-text" id="btn-hm-preset-smooth" style="flex: 1; padding: 6px 8px; font-size: 0.72rem; justify-content: center;" title="Gradasi lembut menyebar">
+                <i class="fa-solid fa-water"></i> Halus
+              </button>
+              <button type="button" class="btn-icon-text" id="btn-hm-preset-default" style="flex: 1; padding: 6px 8px; font-size: 0.72rem; justify-content: center; border-color: var(--primary); color: var(--primary);" title="Setelan seimbang standar">
+                <i class="fa-solid fa-sliders"></i> Standar
+              </button>
+              <button type="button" class="btn-icon-text" id="btn-hm-preset-sharp" style="flex: 1; padding: 6px 8px; font-size: 0.72rem; justify-content: center;" title="Fokus tajam pada titik">
+                <i class="fa-solid fa-bullseye"></i> Fokus
+              </button>
+            </div>
+
+            <!-- Top Hotspots Insight -->
+            <div style="border-top: 1px solid var(--border-light); padding-top: 10px;">
+              <div style="font-size: 0.76rem; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
+                <i class="fa-solid fa-fire-flame-curved" style="color: var(--accent-rose);"></i> Area Konsentrasi Tertinggi (Hotspot)
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 4px; font-size: 0.76rem; color: var(--text-secondary);">
+                <div style="display: flex; justify-content: space-between; padding: 3px 0;">
+                  <span>📍 <strong>Badung Selatan & Denpasar</strong> (Kuta, Pandawa, GWK)</span>
+                  <span style="color: #ef4444; font-weight: 700;">Zona Merah</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 3px 0;">
+                  <span>📍 <strong>Ubud & Gianyar</strong> (Monkey Forest, Tegalalang)</span>
+                  <span style="color: #f97316; font-weight: 700;">Zona Oranye</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 3px 0;">
+                  <span>📍 <strong>Bedugul & Batur</strong> (Ulun Danu, Gunung Batur)</span>
+                  <span style="color: #eab308; font-weight: 700;">Zona Kuning</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- FLOATING BOTTOM CONTROLS -->
+        <div class="map-bottom-controls">
+          <div class="quick-chip" id="chip-heatmap-indicator" style="display: none; background: rgba(239, 68, 68, 0.92); color: #ffffff; border-color: rgba(239, 68, 68, 0.5); font-weight: 700;">
+            <i class="fa-solid fa-fire" style="color: #ffffff;"></i>
+            <span>Layer Heatmap Aktif (Spektrum Panas)</span>
+          </div>
+          <div class="quick-chip" id="chip-total-destinasi">
+            <i class="fa-solid fa-location-dot" style="color: var(--primary);"></i>
+            <span id="quick-chip-text">Memuat data...</span>
+          </div>
+          <div class="quick-chip" id="chip-boundary-toggle">
+            <i class="fa-solid fa-draw-polygon" style="color: #d97706;"></i>
+            <span>Batas Kabupaten Bali: ON</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- VIEW 2: ANALISIS SPASIAL DETAIL            -->
+    <!-- ========================================== -->
+    <section class="tab-content" id="view-spatial">
+      <div class="view-page-header">
+        <div class="view-title-wrap">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+            <span style="background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.05em;">
+              <i class="fa-solid fa-atom"></i> Computational GIS Suite
+            </span>
+          </div>
+          <h2>Laboratorium Analisis Spasial GIS Pariwisata</h2>
+          <p>Eksplorasi mendalam metode Buffer Jarak, Kepadatan Heatmap, dan Algoritma Density-Based Spatial Clustering (DBSCAN) untuk destinasi Bali.</p>
+        </div>
+        <button class="tool-btn-primary" style="width: auto; padding: 10px 20px;" onclick="document.getElementById('tab-btn-map').click();">
+          <i class="fa-solid fa-map-location-dot"></i>
+          <span>Buka Peta Interaktif</span>
+        </button>
+      </div>
+
+      <div class="spatial-grid-layout">
+        <!-- Left: Analysis Guide & Controls -->
+        <div class="spatial-card-box">
+          <div class="spatial-card-header-wrap">
+            <div class="spatial-card-title">
+              <i class="fa-solid fa-microscope" style="color: var(--primary);"></i>
+              <span>Metodologi Analisis Spasial</span>
+            </div>
+            <p class="spatial-card-subtitle">
+              Tiga pilar komputasi geospasial yang diimplementasikan pada sistem SIG Pariwisata Bali.
+            </p>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 14px;">
+            <!-- Method 1: Radius Buffer -->
+            <div class="method-card radius">
+              <div class="method-header">
+                <span class="method-badge-pill">Haversine Sphere</span>
+                <span style="font-size: 0.75rem; color: #2563eb; font-weight: 700;"><i class="fa-solid fa-arrows-left-right-to-line"></i> Buffer</span>
+              </div>
+              <h4 class="method-title">
+                <i class="fa-solid fa-circle-dot" style="color: #2563eb;"></i> 1. Analisis Radius (Buffer Jarak)
+              </h4>
+              <p class="method-desc">
+                Menghitung jarak Haversine bola bumi dari koordinat pengguna atau pusat objek wisata terhadap seluruh destinasi di Bali.
+              </p>
+              <button class="method-action-btn" onclick="document.getElementById('tab-btn-map').click(); document.getElementById('tool-btn-radius').click();">
+                <i class="fa-solid fa-play"></i> Buka Pencarian Radius
+              </button>
+            </div>
+
+            <!-- Method 2: DBSCAN -->
+            <div class="method-card dbscan">
+              <div class="method-header">
+                <span class="method-badge-pill">Density Clustering</span>
+                <span style="font-size: 0.75rem; color: #d97706; font-weight: 700;"><i class="fa-solid fa-diagram-project"></i> DBSCAN</span>
+              </div>
+              <h4 class="method-title">
+                <i class="fa-solid fa-circle-nodes" style="color: #d97706;"></i> 2. Algoritma Kluster DBSCAN
+              </h4>
+              <p class="method-desc">
+                Mengelompokkan destinasi berdasarkan kerapatan spasial (parameter <strong>Epsilon ε</strong> dan <strong>MinPts</strong>) serta memisahkan destinasi terisolasi (titik Noise/Pencilan).
+              </p>
+              <button class="method-action-btn" style="color: #d97706; background: #fef3c7; border-color: #fde68a;" onclick="document.getElementById('tab-btn-map').click(); document.getElementById('tool-btn-dbscan').click();">
+                <i class="fa-solid fa-play"></i> Jalankan Kluster DBSCAN
+              </button>
+            </div>
+
+            <!-- Method 3: Heatmap Density -->
+            <div class="method-card heatmap">
+              <div class="method-header">
+                <span class="method-badge-pill">Kernel Density</span>
+                <span style="font-size: 0.75rem; color: #e11d48; font-weight: 700;"><i class="fa-solid fa-fire"></i> Heatmap</span>
+              </div>
+              <h4 class="method-title">
+                <i class="fa-solid fa-fire-flame-curved" style="color: #ef4444;"></i> 3. Heatmap Density
+              </h4>
+              <p class="method-desc">
+                Visualisasi kernel density estimation dengan pembobotan rating kepuasan wisatawan untuk mendeteksi intensitas konsentrasi destinasi unggulan.
+              </p>
+              <button class="method-action-btn" style="color: #e11d48; background: #ffe4e6; border-color: #fecdd3;" onclick="document.getElementById('tab-btn-map').click(); document.getElementById('tool-btn-heatmap').click();">
+                <i class="fa-solid fa-play"></i> Buka Pengaturan Heatmap
+              </button>
+            </div>
+
+            <button class="tool-btn-primary btn-run-dbscan" style="margin-top: 6px;" onclick="document.getElementById('tab-btn-map').click(); document.getElementById('tool-btn-dbscan').click();">
+              <i class="fa-solid fa-layer-group"></i>
+              <span>Eksplorasi Seluruh Layer Spasial</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Right: Analytical Insights Cards -->
+        <div class="spatial-card-box" style="flex: 1;">
+          <div class="spatial-card-header-wrap">
+            <div class="spatial-card-title">
+              <i class="fa-solid fa-chart-pie" style="color: var(--primary);"></i>
+              <span>Temuan Konsentrasi Spasial Destinasi Bali</span>
+            </div>
+            <p class="spatial-card-subtitle">
+              Hasil komputasi clustering geospasial mengidentifikasi 4 zona aglomerasi pariwisata utama di Pulau Bali.
+            </p>
+          </div>
+
+          <div class="insight-grid">
+            <!-- Card 1: Badung & Kuta -->
+            <div class="insight-card badge-amber">
+              <div class="insight-category-chip chip-amber">
+                <i class="fa-solid fa-certificate"></i> Aglomerasi Utama
+              </div>
+              <h4 class="insight-title">Kluster Badung Selatan & Kuta</h4>
+              <p class="insight-desc">
+                Memiliki kepadatan geospasial tertinggi di Bali dengan orientasi wisata pantai pasir putih, sunset point ternama, beach club internasional, dan hiburan modern (GWK, Uluwatu, Melasti, Kuta, Seminyak).
+              </p>
+              <div class="insight-footer">
+                <span><strong>14 Destinasi</strong> • Pantai & Hiburan</span>
+                <button class="insight-map-btn" onclick="document.getElementById('tab-btn-map').click(); window.AppState.selectedKabupaten='BADUNG'; window.FilterModule && window.FilterModule.applyFilters();">
+                  Lihat di Peta <i class="fa-solid fa-arrow-right"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Card 2: Ubud & Gianyar -->
+            <div class="insight-card badge-emerald">
+              <div class="insight-category-chip chip-emerald">
+                <i class="fa-solid fa-leaf"></i> Kluster Budaya & Alam
+              </div>
+              <h4 class="insight-title">Kluster Ubud & Gianyar</h4>
+              <p class="insight-desc">
+                Konsentrasi wisata budaya bernilai tinggi, bentang sawah terasering UNESCO (Tegallalang), cagar suci Monkey Forest, pemandian melukat Tirta Empul, serta pusat seni kriya dan yoga.
+              </p>
+              <div class="insight-footer">
+                <span><strong>11 Destinasi</strong> • Budaya & Alam</span>
+                <button class="insight-map-btn" onclick="document.getElementById('tab-btn-map').click(); window.AppState.selectedKabupaten='GIANYAR'; window.FilterModule && window.FilterModule.applyFilters();">
+                  Lihat di Peta <i class="fa-solid fa-arrow-right"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Card 3: Bedugul & Kintamani -->
+            <div class="insight-card badge-cyan">
+              <div class="insight-category-chip chip-cyan">
+                <i class="fa-solid fa-mountain"></i> Kluster Dataran Tinggi
+              </div>
+              <h4 class="insight-title">Bedugul & Kintamani</h4>
+              <p class="insight-desc">
+                Karakteristik dataran tinggi vulkanik sejuk, danau kaldera berkabut, pura air terapung Ulun Danu Beratan, pendakian matahari terbit Gunung Batur, serta kawasan agro-wisata kopi.
+              </p>
+              <div class="insight-footer">
+                <span><strong>9 Destinasi</strong> • Kaldera & Danau</span>
+                <button class="insight-map-btn" onclick="document.getElementById('tab-btn-map').click(); window.AppState.selectedKabupaten='BANGLI'; window.FilterModule && window.FilterModule.applyFilters();">
+                  Lihat di Peta <i class="fa-solid fa-arrow-right"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Card 4: Nusa Penida & Lembongan -->
+            <div class="insight-card badge-purple">
+              <div class="insight-category-chip chip-purple">
+                <i class="fa-solid fa-water"></i> Kluster Kepulauan Bahari
+              </div>
+              <h4 class="insight-title">Nusa Penida & Lembongan</h4>
+              <p class="insight-desc">
+                Geomorfologi tebing karst pesisir laut megah (Kelingking T-Rex), jembatan terowongan karang Broken Beach, kolam pasang laut alami Angel's Billabong, serta terumbu karang Crystal Bay.
+              </p>
+              <div class="insight-footer">
+                <span><strong>7 Destinasi</strong> • Tebing Laut & Karang</span>
+                <button class="insight-map-btn" onclick="document.getElementById('tab-btn-map').click(); window.AppState.selectedKabupaten='KLUNGKUNG'; window.FilterModule && window.FilterModule.applyFilters();">
+                  Lihat di Peta <i class="fa-solid fa-arrow-right"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- VIEW 3: STATISTIK & ANALITIK GIS           -->
+    <!-- ========================================== -->
+    <section class="tab-content" id="view-stats">
+      <div class="view-page-header">
+        <div class="view-title-wrap">
+          <h2>Statistik & Distribusi Spasial Pariwisata Bali</h2>
+          <p>Ringkasan metrik kuantitatif sebaran destinasi, rating kepuasan wisatawan, dan statistik per wilayah.</p>
+        </div>
+      </div>
+
+      <!-- KPI GRID -->
+      <div class="stats-kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-icon teal"><i class="fa-solid fa-map-pin"></i></div>
+          <div class="kpi-info">
+            <h3>Total Destinasi</h3>
+            <div class="kpi-num" id="stat-total-dest">-</div>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon amber"><i class="fa-solid fa-star"></i></div>
+          <div class="kpi-info">
+            <h3>Rata-rata Rating</h3>
+            <div class="kpi-num" id="stat-avg-rating">-</div>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon blue"><i class="fa-solid fa-city"></i></div>
+          <div class="kpi-info">
+            <h3>Kabupaten Terpadat</h3>
+            <div class="kpi-num" id="stat-top-kab">-</div>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon purple"><i class="fa-solid fa-layer-group"></i></div>
+          <div class="kpi-info">
+            <h3>Kategori Unggulan</h3>
+            <div class="kpi-num" id="stat-top-cat">-</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHARTS GRID -->
+      <div class="stats-charts-grid">
+        <div class="chart-card">
+          <h3><i class="fa-solid fa-chart-column" style="color: var(--primary);"></i> Sebaran Destinasi per Kabupaten/Kota</h3>
+          <div class="chart-container">
+            <canvas id="chart-kabupaten"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <h3><i class="fa-solid fa-chart-pie" style="color: #d97706;"></i> Komposisi Kategori Wisata</h3>
+          <div class="chart-container">
+            <canvas id="chart-category"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <h3><i class="fa-solid fa-ranking-star" style="color: #f59e0b;"></i> Top 5 Destinasi dengan Rating Tertinggi</h3>
+          <div class="chart-container">
+            <canvas id="chart-top-rated"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <h3><i class="fa-solid fa-bullseye" style="color: #7c3aed;"></i> Densitas Kluster DBSCAN vs Titik Pencilan</h3>
+          <div class="chart-container">
+            <canvas id="chart-density"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- VIEW 4: MANAJEMEN DATA ADMIN (CRUD)        -->
+    <!-- ========================================== -->
+    <section class="tab-content" id="view-admin">
+      <!-- Guard when not authenticated as admin -->
+      <div id="admin-guest-guard" style="display: none; text-align: center; padding: 60px 32px; background: #ffffff; border-radius: var(--radius-lg); border: 1px solid var(--border-light); box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06); margin: 40px auto; max-width: 580px;">
+        <div style="width: 72px; height: 72px; border-radius: 50%; background: #fef3c7; color: #d97706; border: 1px solid #fde68a; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 20px;">
+          <i class="fa-solid fa-lock"></i>
+        </div>
+        <h3 style="font-family: var(--font-heading); font-size: 1.35rem; color: var(--text-primary); margin-bottom: 8px; font-weight: 800;">Akses Khusus Administrator</h3>
+        <p style="color: var(--text-muted); font-size: 0.88rem; line-height: 1.6; margin-bottom: 24px;">
+          Fitur Kelola Data, penambahan destinasi, dan manajemen basis data spasial hanya dapat diakses oleh Administrator SIG Pariwisata Bali.
+        </p>
+        <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+          <button class="tool-btn-primary" onclick="document.getElementById('modal-login').classList.add('active')">
+            <i class="fa-solid fa-user-shield"></i>
+            <span>Login Administrator</span>
+          </button>
+          <button class="btn-icon-text" onclick="document.getElementById('tab-btn-map').click()">
+            <i class="fa-solid fa-map"></i>
+            <span>Kembali ke Peta Wisata</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Admin Content Wrapper (Visible only to Admin) -->
+      <div id="admin-content-wrap">
+        <div class="admin-header-bar">
+          <div class="view-title-wrap">
+            <h2>Panel Administrasi & Basis Data Spasial</h2>
+            <p>Kelola data titik koordinat, atribut pariwisata, fasilitas, tiket, serta ekspor format geospasial.</p>
+          </div>
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <button class="tool-btn-primary" id="btn-open-add-place">
+              <i class="fa-solid fa-plus"></i>
+              <span>Tambah Destinasi Baru</span>
+            </button>
+            <button class="btn-action-export btn-export-geojson" id="btn-export-geojson" title="Unduh data spasial dalam format GeoJSON (.geojson)">
+              <i class="fa-solid fa-file-code"></i>
+              <span>Export GeoJSON</span>
+            </button>
+            <button class="btn-action-export btn-export-csv" id="btn-export-csv" title="Unduh data tabel dalam format CSV (.csv / Excel)">
+              <i class="fa-solid fa-file-csv"></i>
+              <span>Export CSV</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Table Container -->
+        <div class="admin-table-container">
+          <div class="admin-table-controls">
+            <input type="text" id="admin-table-search" class="search-input" style="max-width: 320px;" placeholder="Cari dalam tabel admin...">
+            <div style="display: flex; gap: 10px;">
+              <select id="admin-table-kab" class="filter-select">
+                <option value="Semua">Semua Kabupaten</option>
+                <option value="BADUNG">BADUNG</option>
+                <option value="DENPASAR">DENPASAR</option>
+                <option value="GIANYAR">GIANYAR</option>
+                <option value="TABANAN">TABANAN</option>
+                <option value="BULELENG">BULELENG</option>
+                <option value="BANGLI">BANGLI</option>
+                <option value="KARANGASEM">KARANGASEM</option>
+                <option value="KLUNGKUNG">KLUNGKUNG</option>
+                <option value="JEMBRANA">JEMBRANA</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="custom-table" id="admin-places-table">
+              <thead>
+                <tr>
+                  <th style="width: 50px;">Foto</th>
+                  <th>Nama Destinasi</th>
+                  <th>Kategori</th>
+                  <th>Kabupaten</th>
+                  <th>Koordinat (Lat, Lng)</th>
+                  <th>Rating</th>
+                  <th>Tiket Masuk</th>
+                  <th style="text-align: right;">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="admin-table-body">
+                <!-- Rendered via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- MODAL 1: ADMIN LOGIN                       -->
+  <!-- ========================================== -->
+  <div class="modal-overlay" id="modal-login">
+    <div class="modal-card" style="max-width: 420px;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-lock" style="color: var(--secondary-light); margin-right: 8px;"></i> Login Administrator</h3>
+        <button class="close-tool-btn" id="close-login-modal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="form-login">
+        <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+          <div style="font-size: 0.8rem; color: var(--text-muted); background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); padding: 10px; border-radius: var(--radius-sm);">
+            💡 Default akun: Username <strong>admin</strong>, Password <strong>admin123</strong>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="login-username">Username</label>
+            <input type="text" id="login-username" class="form-input" placeholder="Masukkan username admin" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="login-password">Password</label>
+            <input type="password" id="login-password" class="form-input" placeholder="Masukkan password" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-icon-text" id="btn-cancel-login">Batal</button>
+          <button type="submit" class="tool-btn-primary" style="width: auto; padding: 10px 24px;">Masuk</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL 2: FORM TAMBAH / EDIT DESTINASI      -->
+  <!-- ========================================== -->
+  <div class="modal-overlay" id="modal-place-form">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <h3 id="place-form-title"><i class="fa-solid fa-location-dot" style="color: var(--primary); margin-right: 8px;"></i> Tambah Destinasi Wisata</h3>
+        <button class="close-tool-btn" id="close-place-form-modal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="form-place">
+        <input type="hidden" id="place-id">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label" for="form-name">Nama Destinasi Wisata *</label>
+              <input type="text" id="form-name" class="form-input" placeholder="Contoh: Pantai Tanah Barak" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="form-category">Kategori *</label>
+              <select id="form-category" class="form-select" required>
+                <option value="Pantai">Pantai</option>
+                <option value="Budaya & Pura">Budaya & Pura</option>
+                <option value="Alam & Gunung">Alam & Gunung</option>
+                <option value="Air Terjun">Air Terjun</option>
+                <option value="Rekreasi & Edukasi">Rekreasi & Edukasi</option>
+                <option value="Kuliner & Relaksasi">Kuliner & Relaksasi</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="form-kabupaten">Kabupaten / Kota *</label>
+              <select id="form-kabupaten" class="form-select" required>
+                <option value="BADUNG">Kabupaten Badung</option>
+                <option value="DENPASAR">Kota Denpasar</option>
+                <option value="GIANYAR">Kabupaten Gianyar</option>
+                <option value="TABANAN">Kabupaten Tabanan</option>
+                <option value="BULELENG">Kabupaten Buleleng</option>
+                <option value="BANGLI">Kabupaten Bangli</option>
+                <option value="KARANGASEM">Kabupaten Karangasem</option>
+                <option value="KLUNGKUNG">Kabupaten Klungkung</option>
+                <option value="JEMBRANA">Kabupaten Jembrana</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="form-rating">Rating (1.0 - 5.0)</label>
+              <input type="number" id="form-rating" class="form-input" min="1.0" max="5.0" step="0.1" value="4.7" required>
+            </div>
+
+            <!-- Spatial Coordinates with Map Picker -->
+            <div class="form-group">
+              <label class="form-label" for="form-lat">Latitude (Garis Lintang) *</label>
+              <input type="number" id="form-lat" class="form-input" step="any" placeholder="-8.123456" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="form-lng">Longitude (Garis Bujur) *</label>
+              <input type="number" id="form-lng" class="form-input" step="any" placeholder="115.123456" required>
+            </div>
+
+            <div class="form-group full-width">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span class="form-label">Pilih Lokasi Langsung dari Peta Mini (Klik untuk setel koordinat):</span>
+              </div>
+              <div id="picker-map" class="map-picker-box"></div>
+            </div>
+
+            <div class="form-group full-width">
+              <label class="form-label" for="form-address">Alamat Lengkap</label>
+              <input type="text" id="form-address" class="form-input" placeholder="Nama jalan, desa, kecamatan...">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="form-ticket">Harga Tiket Masuk</label>
+              <input type="text" id="form-ticket" class="form-input" placeholder="Contoh: Rp 20.000">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="form-hours">Jam Operasional</label>
+              <input type="text" id="form-hours" class="form-input" placeholder="Contoh: 08:00 - 18:00 WITA">
+            </div>
+
+            <!-- FOTO DESTINASI (UPLOAD FILE JPG/PNG ATAU LINK URL + LIVE PREVIEW) -->
+            <div class="form-group full-width">
+              <label class="form-label" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span><i class="fa-solid fa-camera" style="color: var(--primary);"></i> Foto Destinasi Wisata *</span>
+                <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: normal;">Format: JPG, JPEG, PNG atau Tautan URL</span>
+              </label>
+
+              <div class="image-upload-wrapper">
+                <!-- Tab Pilihan: Upload File vs Link URL -->
+                <div class="img-source-tabs">
+                  <button type="button" class="img-tab-btn active" id="btn-tab-upload-file">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Upload File (JPG / PNG)
+                  </button>
+                  <button type="button" class="img-tab-btn" id="btn-tab-url-link">
+                    <i class="fa-solid fa-link"></i> Tempel Link URL Web
+                  </button>
+                </div>
+
+                <!-- Opsi 1: File Upload Dropzone -->
+                <div class="img-panel" id="panel-upload-file">
+                  <label class="file-dropzone" for="form-image-file" id="dropzone-label">
+                    <div class="dropzone-icon"><i class="fa-solid fa-file-image"></i></div>
+                    <div class="dropzone-text">
+                      <strong>Klik untuk memilih gambar</strong> atau seret file ke sini
+                    </div>
+                    <div class="dropzone-hint">Mendukung format: <strong>.jpg, .jpeg, .png</strong> (Maksimal 10 MB)</div>
+                    <input type="file" id="form-image-file" accept=".jpg, .jpeg, .png, image/jpeg, image/png" style="display: none;">
+                  </label>
+                </div>
+
+                <!-- Opsi 2: Link URL Input -->
+                <div class="img-panel" id="panel-url-link" style="display: none;">
+                  <div style="position: relative;">
+                    <i class="fa-solid fa-globe" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                    <input type="url" id="form-image-url" class="form-input" style="width: 100%; padding-left: 38px;" placeholder="Tempel URL gambar (https://images.unsplash.com/... atau URL foto lainnya)">
+                  </div>
+                </div>
+
+                <!-- Hidden Input untuk dikirim ke Backend -->
+                <input type="hidden" id="form-image">
+
+                <!-- Live Image Preview Card (Muncul sebelum disimpan) -->
+                <div class="live-image-preview-card" id="image-preview-container" style="display: none;">
+                  <div class="preview-header">
+                    <div class="preview-title">
+                      <i class="fa-solid fa-eye" style="color: var(--primary);"></i>
+                      <span>Pratinjau Foto Destinasi (Tampilan Gambar Sebelum Disimpan)</span>
+                    </div>
+                    <button type="button" class="btn-clear-image" id="btn-clear-image" title="Hapus foto ini dan pilih ulang">
+                      <i class="fa-solid fa-trash-can"></i> Hapus / Ganti Foto
+                    </button>
+                  </div>
+                  <div class="preview-img-container">
+                    <img id="image-preview-img" src="" alt="Pratinjau Foto Destinasi">
+                  </div>
+                  <div class="preview-footer-info">
+                    <i class="fa-solid fa-circle-check" style="color: #10b981;"></i>
+                    <span id="image-preview-filename">Foto siap disimpan ke basis data</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group full-width">
+              <label class="form-label" for="form-facilities">Fasilitas Wisata</label>
+              <input type="text" id="form-facilities" class="form-input" placeholder="Contoh: Parkir, Toilet, Gazebo, Warung Makan">
+            </div>
+
+            <div class="form-group full-width">
+              <label class="form-label" for="form-desc">Deskripsi Destinasi</label>
+              <textarea id="form-desc" class="form-textarea" placeholder="Tuliskan daya tarik, sejarah singkat, dan keunggulan tempat wisata ini..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-icon-text" id="btn-cancel-place-form">Batal</button>
+          <button type="submit" class="tool-btn-primary" style="width: auto; padding: 10px 24px;">Simpan Data</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL 3: DETAIL DESTINASI WISATA           -->
+  <!-- ========================================== -->
+  <div class="modal-overlay" id="modal-place-detail">
+    <div class="modal-card" style="max-width: 640px;">
+      <div class="modal-header">
+        <h3 id="detail-title">Detail Destinasi</h3>
+        <button class="close-tool-btn" id="close-detail-modal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" id="detail-body">
+        <!-- Rendered via JS -->
+      </div>
+      <div class="modal-footer" id="detail-footer">
+        <button type="button" class="btn-icon-text" id="btn-close-detail">Tutup</button>
+        <button type="button" class="btn-icon-text admin-only" id="btn-detail-edit-place" style="display: none; border-color: rgba(245, 158, 11, 0.5); color: #fbbf24;" title="Edit data destinasi ini">
+          <i class="fa-solid fa-pen-to-square"></i>
+          <span>Edit Destinasi (Admin)</span>
+        </button>
+        <a id="btn-route-google-maps" href="#" target="_blank" class="tool-btn-primary" style="width: auto; text-decoration: none;">
+          <i class="fa-solid fa-diamond-turn-right"></i>
+          <span>Rute di Google Maps</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST CONTAINER -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Scripts -->
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <!-- Leaflet Heat JS -->
+  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+  <!-- Leaflet MarkerCluster JS -->
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <!-- Turf JS for GeoJSON Spatial Calculations -->
+  <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+  <!-- Chart.js for Statistics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- Modular App Scripts -->
+  <script src="/src/js/app.js"></script>
+  <script src="/src/js/map.js"></script>
+  <script src="/src/js/spatial.js"></script>
+  <script src="/src/js/admin.js"></script>
+  <script src="/src/js/stats.js"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "gis-bali-frontend",
+  "version": "1.0.0",
+  "description": "Interactive Web GIS Frontend for Bali Tourism",
+  "scripts": {
+    "dev": "vite --port 3000 --host",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.4.11"
+  }
+}
